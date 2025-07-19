@@ -3,17 +3,13 @@ Main Pipeline for Fraud Detection Project
 Orchestrates the complete workflow using existing train/test datasets.
 """
 
-import os
-import sys
+from ast import arg
 import logging
 import argparse
 from pathlib import Path
 import time
 import pandas as pd
 from typing import Dict, Any
-
-# Add src to path
-sys.path.append(str(Path(__file__).parent))
 
 # Import project modules
 from data_processing.download_data import DataLoader
@@ -27,11 +23,7 @@ from evaluation.model_comparison import ModelComparator
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('fraud_detection_pipeline.log'),
-        logging.StreamHandler()
-    ]
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
@@ -39,17 +31,7 @@ class FraudDetectionPipeline:
     """Main pipeline for fraud detection project."""
     
     def __init__(self, config: Dict[str, Any] = None):
-        self.config = config or {
-            'data_dir': 'data',
-            'models_dir': 'models',
-            'reports_dir': 'reports',
-            'load_data': True,
-            'preprocess_data': True,
-            'train_models': True,
-            'evaluate_models': True,
-            'deploy_models': False,
-            'cloud_provider': 'aws'
-        }
+        self.config = config
         
         # Create directories
         for dir_name in [self.config['data_dir'], self.config['models_dir'], self.config['reports_dir']]:
@@ -70,27 +52,19 @@ class FraudDetectionPipeline:
             
             # Load datasets
             train_data, test_data = self.data_loader.load_datasets()
+                            
+            # Prepare data for training
+            X_train, X_test, y_train, y_test = self.data_loader.prepare_data_for_training(train_data, test_data)
             
-            # Validate data
-            metadata = self.data_loader.validate_data(train_data, test_data)
-            if metadata["valid"]:
-                # Save metadata
-                self.data_loader.save_metadata(metadata)
-                
-                # Prepare data for training
-                X_train, X_test, y_train, y_test = self.data_loader.prepare_data_for_training(train_data, test_data)
-                
-                # Save prepared data
-                X_train.to_csv(f"{self.config['data_dir']}/X_train.csv", index=False)
-                X_test.to_csv(f"{self.config['data_dir']}/X_test.csv", index=False)
-                y_train.to_csv(f"{self.config['data_dir']}/y_train.csv", index=False)
-                y_test.to_csv(f"{self.config['data_dir']}/y_test.csv", index=False)
-                
-                logger.info("✅ Datasets loaded and validated successfully!")
-                return True
-            else:
-                logger.error(f"❌ Dataset validation failed: {metadata.get('error')}")
-                return False
+            # Save prepared data
+            X_train.to_csv(f"{self.config['data_dir']}/X_train.csv", index=False)
+            X_test.to_csv(f"{self.config['data_dir']}/X_test.csv", index=False)
+            y_train.to_csv(f"{self.config['data_dir']}/y_train.csv", index=False)
+            y_test.to_csv(f"{self.config['data_dir']}/y_test.csv", index=False)
+            
+            logger.info("Datasets loaded and validated successfully!")
+            return True
+            
                 
         except Exception as e:
             logger.error(f"Error in dataset loading: {e}")
@@ -117,7 +91,7 @@ class FraudDetectionPipeline:
             y_train.to_csv(f"{self.config['data_dir']}/y_train_processed.csv", index=False)
             y_test.to_csv(f"{self.config['data_dir']}/y_test_processed.csv", index=False)
             
-            logger.info("✅ Data preprocessing completed successfully!")
+            logger.info("Data preprocessing completed successfully!")
             return True
             
         except Exception as e:
@@ -135,7 +109,7 @@ class FraudDetectionPipeline:
             y_train = pd.read_csv(f"{self.config['data_dir']}/y_train_processed.csv").iloc[:, 0]
             y_test = pd.read_csv(f"{self.config['data_dir']}/y_test_processed.csv").iloc[:, 0]
             
-            # Train Logistic Regression (Team Member 1)
+            # Train Logistic Regression
             logger.info("Training Logistic Regression model...")
             lr_model = FraudLogisticRegression()
             lr_model.train(X_train, y_train)
@@ -143,7 +117,7 @@ class FraudDetectionPipeline:
             lr_model.save_model(f"{self.config['models_dir']}/logistic_regression_model.pkl")
             self.models['logistic_regression'] = lr_model
             
-            # Train Neural Network (Team Member 2)
+            # Train Neural Network
             logger.info("Training Neural Network model...")
             nn_model = FraudNeuralNetwork()
             nn_model.train(X_train, y_train)
@@ -151,7 +125,7 @@ class FraudDetectionPipeline:
             nn_model.save_model(f"{self.config['models_dir']}/neural_network_model.h5")
             self.models['neural_network'] = nn_model
             
-            # Train KNN Model (New)
+            # Train KNN Model
             logger.info("Training KNN model...")
             knn_model = FraudKNNModel()
             knn_model.train(X_train, y_train)
@@ -159,7 +133,7 @@ class FraudDetectionPipeline:
             knn_model.save_model(f"{self.config['models_dir']}/knn_model.pkl")
             self.models['knn'] = knn_model
             
-            # Train Decision Tree Model (New)
+            # Train Decision Tree Model
             logger.info("Training Decision Tree model...")
             dt_model = FraudDecisionTreeModel()
             dt_model.train(X_train, y_train)
@@ -167,7 +141,7 @@ class FraudDetectionPipeline:
             dt_model.save_model(f"{self.config['models_dir']}/decision_tree_model.pkl")
             self.models['decision_tree'] = dt_model
             
-            logger.info("✅ All models trained successfully!")
+            logger.info("All models trained successfully!")
             return True
             
         except Exception as e:
@@ -183,7 +157,7 @@ class FraudDetectionPipeline:
             X_test = pd.read_csv(f"{self.config['data_dir']}/X_test_processed.csv")
             y_test = pd.read_csv(f"{self.config['data_dir']}/y_test_processed.csv").iloc[:, 0]
             
-            # Add models to comparator
+            # Add models for evaluation
             for name, model in self.models.items():
                 self.comparator.add_model(name, model.model, name)
             
@@ -201,131 +175,117 @@ class FraudDetectionPipeline:
             self.comparator.plot_comparison(f"{self.config['reports_dir']}/model_comparison.png")
             self.comparator.plot_roc_curves(X_test, y_test, f"{self.config['reports_dir']}/roc_curves.png")
             
-            # Generate HTML report
-            self.comparator.generate_report(f"{self.config['reports_dir']}/model_comparison_report.html")
-            
-            # Print summary
-            print("\n" + "="*50)
-            print("MODEL EVALUATION SUMMARY")
-            print("="*50)
-            print(comparison_df.to_string(index=False))
-            print("\n" + "="*50)
-            
-            logger.info("✅ Model evaluation completed successfully!")
+            logger.info("Model evaluation completed successfully!")
             return True
             
         except Exception as e:
             logger.error(f"Error in model evaluation: {e}")
             return False
-    
-    def deploy_models(self) -> bool:
-        """Deploys models to cloud environment."""
-        if not self.config['deploy_models']:
-            logger.info("Model deployment skipped (disabled in config)")
-            return True
-        
-        logger.info("Step 5: Deploying models to cloud...")
+
+    def feature_importance_result(self) -> bool:
+        """Get feature importance for fraud detection models."""
+        logger.info("Step: Getting feature importance for fraud detection models...")
         
         try:
-            from cloud.deployment import CloudDeployer
+            # Load processed data
+            X_train = pd.read_csv(f"{self.config['data_dir']}/X_train_processed.csv")
+            X_test = pd.read_csv(f"{self.config['data_dir']}/X_test_processed.csv")
+            y_train = pd.read_csv(f"{self.config['data_dir']}/y_train_processed.csv").iloc[:, 0]
+            y_test = pd.read_csv(f"{self.config['data_dir']}/y_test_processed.csv").iloc[:, 0]
             
-            deployer = CloudDeployer()
-            success = deployer.deploy_complete_pipeline(self.config['cloud_provider'])
+            logger.info("Feature Importance Logistic Regression model...")
+            lr_model = FraudLogisticRegression()
+            lr_model.load_model(f"{self.config['models_dir']}/logistic_regression_model.pkl")
+            lr_model.plot_results(X_train, y_train, "reports/feature_importance_logistic_reg.png")
             
-            if success:
-                logger.info("✅ Model deployment completed successfully!")
-            else:
-                logger.error("❌ Model deployment failed")
+            # Train Neural Network
+            logger.info("Feature Importance Neural Network model...")
+            nn_model = FraudNeuralNetwork()
+            nn_model.train(X_train, y_train)
+            nn_model.plot_results(X_train, y_train, "reports/feature_importance_neural_network.png")
             
-            return success
+            # Train KNN Model
+            logger.info("Feature Importance KNN model...")
+            knn_model = FraudKNNModel()
+            knn_model.train(X_train, y_train)
+            knn_model.plot_results(X_train, y_train, "reports/feature_importance_knn.png")
+            
+            # Train Decision Tree Model
+            logger.info("Feature Importance Decision Tree model...")
+            dt_model = FraudDecisionTreeModel()
+            dt_model.train(X_train, y_train)
+            dt_model.plot_results(X_train, y_train, "reports/feature_importance_decision.png")
+            
+            logger.info("All models Feature Importance gotten successfully!")
+            return True
             
         except Exception as e:
-            logger.error(f"Error in model deployment: {e}")
+            logger.error(f"Error in model Feature Importance: {e}")
             return False
     
     def run_pipeline(self) -> bool:
         """Runs the complete fraud detection pipeline."""
         logger.info("Starting Fraud Detection Pipeline")
-        logger.info("="*50)
+        logger.info("================================")
         
         start_time = time.time()
         
-        # Step 1: Load datasets
-        if self.config['load_data']:
-            if not self.load_datasets():
-                logger.error("Pipeline failed at dataset loading step")
-                return False
-        
-        # Step 2: Preprocess data
-        if self.config['preprocess_data']:
-            if not self.preprocess_data():
-                logger.error("Pipeline failed at data preprocessing step")
-                return False
-        
-        # Step 3: Train models
-        if self.config['train_models']:
-            if not self.train_models():
-                logger.error("Pipeline failed at model training step")
-                return False
-        
-        # Step 4: Evaluate models
-        if self.config['evaluate_models']:
-            if not self.evaluate_models():
-                logger.error("Pipeline failed at model evaluation step")
-                return False
-        
-        # Step 5: Deploy models
-        if self.config['deploy_models']:
-            if not self.deploy_models():
-                logger.error("Pipeline failed at model deployment step")
-                return False
+        if not self.load_datasets():
+            logger.error("Pipeline failed at dataset loading step")
+            return False
+    
+        if not self.preprocess_data():
+            logger.error("Pipeline failed at data preprocessing step")
+            return False
+    
+        if not self.train_models():
+            logger.error("Pipeline failed at model training step")
+            return False
+    
+        if not self.evaluate_models():
+            logger.error("Pipeline failed at model evaluation step")
+            return False
         
         total_time = time.time() - start_time
-        
-        logger.info("="*50)
+
+        logger.info("==================================")
         logger.info(f"Pipeline completed successfully in {total_time:.2f} seconds!")
-        logger.info("="*50)
+        logger.info("==================================")
         
         return True
 
 def main():
     """Main function to run the fraud detection pipeline."""
     parser = argparse.ArgumentParser(description="Fraud Detection Pipeline")
-    parser.add_argument("--skip-load", action="store_true", help="Skip dataset loading")
-    parser.add_argument("--skip-preprocess", action="store_true", help="Skip data preprocessing")
-    parser.add_argument("--skip-train", action="store_true", help="Skip model training")
-    parser.add_argument("--skip-evaluate", action="store_true", help="Skip model evaluation")
-    parser.add_argument("--deploy", action="store_true", help="Deploy models to cloud")
-    parser.add_argument("--cloud-provider", choices=["aws", "gcp"], default="aws", help="Cloud provider for deployment")
+    parser.add_argument("--plot-only", action="store_true", help="Plot model feature importance")
     
     args = parser.parse_args()
     
-    # Create configuration
+    # Pipleine configuration
     config = {
         'data_dir': 'data',
         'models_dir': 'models',
         'reports_dir': 'reports',
-        'load_data': not args.skip_load,
-        'preprocess_data': not args.skip_preprocess,
-        'train_models': not args.skip_train,
-        'evaluate_models': not args.skip_evaluate,
-        'deploy_models': args.deploy,
-        'cloud_provider': args.cloud_provider
+        'load_data': True,
+        'preprocess_data': True,
+        'train_models': True,
+        'evaluate_models': True
     }
     
     # Run pipeline
     pipeline = FraudDetectionPipeline(config)
-    success = pipeline.run_pipeline()
+    if (not args.plot_only):
+        success = pipeline.run_pipeline()
+    else:
+        # Plot feature importance results
+        success = pipeline.feature_importance_result()
     
     if success:
-        print("\n🎉 Fraud Detection Pipeline completed successfully!")
-        print("📊 Check the 'reports' directory for detailed results")
-        print("🤖 Models are saved in the 'models' directory")
-        if args.deploy:
-            print("☁️  Models have been deployed to the cloud")
+        print("\nFraud Detection Pipeline completed successfully!")
+        print("Check the 'reports' directory for detailed results")
+        print("Models are saved in the 'models' directory")
     else:
-        print("\n❌ Fraud Detection Pipeline failed!")
-        sys.exit(1)
+        print("\nFraud Detection Pipeline failed!")
 
 if __name__ == "__main__":
     main() 

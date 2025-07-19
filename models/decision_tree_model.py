@@ -17,33 +17,18 @@ class FraudDecisionTreeModel:
     """Decision Tree model for fraud detection with enhanced features."""
     
     def __init__(self, config: Dict[str, Any] = None):
-        self.config = config or {
+        self.config = {
             'criterion': 'gini',
             'max_depth': None,
             'min_samples_split': 2,
             'min_samples_leaf': 1,
             'random_state': 42,
-            'class_weight': 'balanced'  # Added to handle class imbalance
+            'class_weight': 'balanced'
         }
         self.model = None
         self.feature_importance = None
         self.training_time = None
         self.inference_times = []
-        self._validate_config()
-    
-    def _validate_config(self):
-        """Validates configuration parameters."""
-        valid_criteria = ['gini', 'entropy']
-        if 'criterion' not in self.config or self.config['criterion'] not in valid_criteria:
-            raise ValueError(f"criterion must be one of {valid_criteria}")
-        if 'max_depth' in self.config and self.config['max_depth'] is not None and self.config['max_depth'] <= 0:
-            raise ValueError("max_depth must be a positive integer or None")
-        if 'min_samples_split' in self.config and self.config['min_samples_split'] < 2:
-            raise ValueError("min_samples_split must be >= 2")
-        if 'min_samples_leaf' in self.config and self.config['min_samples_leaf'] < 1:
-            raise ValueError("min_samples_leaf must be >= 1")
-        if 'random_state' not in self.config:
-            raise ValueError("random_state is required")
     
     def train(self, X_train: pd.DataFrame, y_train: pd.Series) -> Dict[str, Any]:
         """Trains the Decision Tree model with error handling."""
@@ -131,71 +116,6 @@ class FraudDecisionTreeModel:
         logger.info(f"Evaluation completed. Accuracy: {accuracy:.4f}, AUC-ROC: {auc_roc:.4f}")
         return results
     
-    def hyperparameter_tuning(self, X_train: pd.DataFrame, y_train: pd.Series) -> Dict[str, Any]:
-        """Performs hyperparameter tuning using GridSearchCV."""
-        logger.info("Performing hyperparameter tuning...")
-        
-        param_grid = {
-            'criterion': ['gini', 'entropy'],
-            'max_depth': [3, 5, 10, 15, None],
-            'min_samples_split': [2, 5, 10],
-            'min_samples_leaf': [1, 2, 4],
-            'class_weight': ['balanced', None]
-        }
-        
-        base_model = DecisionTreeClassifier(random_state=self.config['random_state'])
-        grid_search = GridSearchCV(
-            base_model,
-            param_grid,
-            cv=5,
-            scoring='f1',
-            n_jobs=-1,
-            verbose=1
-        )
-        
-        try:
-            grid_search.fit(X_train, y_train)
-            self.model = grid_search.best_estimator_
-            self.config.update(grid_search.best_params_)
-            logger.info(f"Best parameters: {grid_search.best_params_}")
-            logger.info(f"Best CV score: {grid_search.best_score_:.4f}")
-        except Exception as e:
-            logger.error(f"Hyperparameter tuning failed: {e}")
-            raise
-        
-        return {
-            'best_params': grid_search.best_params_,
-            'best_score': grid_search.best_score_,
-            'cv_results': grid_search.cv_results_
-        }
-    
-    def cross_validation(self, X: pd.DataFrame, y: pd.Series, cv: int = 5) -> Dict[str, Any]:
-        """Performs cross-validation with F1 scoring."""
-        logger.info(f"Performing {cv}-fold cross-validation...")
-        
-        if self.model is None:
-            raise ValueError("Model is not trained yet")
-        
-        cv_scores = cross_val_score(
-            self.model,
-            X,
-            y,
-            cv=cv,
-            scoring='f1',
-            n_jobs=-1
-        )
-        
-        results = {
-            'cv_scores': cv_scores,
-            'cv_mean': cv_scores.mean(),
-            'cv_std': cv_scores.std(),
-            'cv_min': cv_scores.min(),
-            'cv_max': cv_scores.max()
-        }
-        
-        logger.info(f"CV Results - Mean: {results['cv_mean']:.4f}, Std: {results['cv_std']:.4f}")
-        return results
-    
     def plot_results(self, X_test: pd.DataFrame, y_test: pd.Series, save_path: str = None):
         """Plots model results, including feature importance."""
         if self.model is None:
@@ -204,7 +124,7 @@ class FraudDecisionTreeModel:
         y_pred = self.predict(X_test)
         y_pred_proba = self.predict_proba(X_test)[:, 1]
         
-        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        _, axes = plt.subplots(2, 2, figsize=(15, 12))
         axes = axes.flatten()
         
         # Confusion Matrix
@@ -256,26 +176,3 @@ class FraudDecisionTreeModel:
         }
         joblib.dump(model_data, file_path)
         logger.info(f"Model saved to: {file_path}")
-    
-    def load_model(self, file_path: str):
-        """Loads a previously saved model."""
-        model_data = joblib.load(file_path)
-        self.model = model_data['model']
-        self.config = model_data['config']
-        self.feature_importance = model_data['feature_importance']
-        self.training_time = model_data['training_time']
-        logger.info(f"Model loaded from: {file_path}")
-
-def main():
-    """Main function to demonstrate the Decision Tree model."""
-    print("Decision Tree Model for Fraud Detection")
-    print("Team Member 2: Traditional Machine Learning Approach")
-    print("\nLiterature Review Summary:")
-    print("- Decision Trees are effective for fraud detection due to their interpretability")
-    print("- Achieve high performance with proper pruning and feature selection")
-    print("- Class weight balancing improves handling of imbalanced datasets")
-    print("- Suitable for capturing non-linear relationships in fraud data")
-    print("Note: Use in pipeline after preprocessing with FraudDataPreprocessor.")
-
-if __name__ == "__main__":
-    main()

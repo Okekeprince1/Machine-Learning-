@@ -17,7 +17,7 @@ class FraudLogisticRegression:
     """Logistic Regression model for fraud detection with enhanced logging and error handling."""
     
     def __init__(self, config: Dict[str, Any] = None):
-        self.config = config or {
+        self.config = {
             'random_state': 42,
             'max_iter': 1000,
             'solver': 'liblinear',
@@ -27,28 +27,16 @@ class FraudLogisticRegression:
         self.feature_importance = None
         self.training_time = None
         self.inference_times = []
-        self._validate_config()
-    
-    def _validate_config(self):
-        """Validates the configuration parameters."""
-        if 'random_state' not in self.config:
-            raise ValueError("random_state is required in config")
-        if 'max_iter' not in self.config or self.config['max_iter'] <= 0:
-            raise ValueError("max_iter must be a positive integer")
-        if 'solver' not in self.config or self.config['solver'] not in ['liblinear', 'saga']:
-            raise ValueError("solver must be 'liblinear' or 'saga'")
-        if 'class_weight' not in self.config:
-            self.config['class_weight'] = 'balanced'
-    
+
     def train(self, X_train: pd.DataFrame, y_train: pd.Series) -> Dict[str, Any]:
         """Trains the logistic regression model with error handling and detailed logging."""
         logger.info("Training Logistic Regression model...")
-        
+      
         if X_train.empty or y_train.empty:
             raise ValueError("Training data is empty")
-        
+       
         start_time = time.time()
-        
+       
         try:
             self.model = LogisticRegression(
                 random_state=self.config['random_state'],
@@ -127,74 +115,6 @@ class FraudLogisticRegression:
         logger.info(f"Evaluation completed. Accuracy: {accuracy:.4f}, AUC-ROC: {auc_roc:.4f}")
         return results
     
-    def hyperparameter_tuning(self, X_train: pd.DataFrame, y_train: pd.Series) -> Dict[str, Any]:
-        """Performs hyperparameter tuning with grid search."""
-        logger.info("Performing hyperparameter tuning...")
-        
-        param_grid = {
-            'C': [0.001, 0.01, 0.1, 1, 10, 100],
-            'penalty': ['l1', 'l2'],
-            'solver': ['liblinear', 'saga']
-        }
-        
-        base_model = LogisticRegression(
-            random_state=self.config['random_state'],
-            max_iter=self.config['max_iter'],
-            class_weight=self.config['class_weight']
-        )
-        
-        grid_search = GridSearchCV(
-            base_model,
-            param_grid,
-            cv=5,
-            scoring='f1',
-            n_jobs=-1,
-            verbose=1
-        )
-        
-        try:
-            grid_search.fit(X_train, y_train)
-            self.model = grid_search.best_estimator_
-            self.config.update(grid_search.best_params_)
-            logger.info(f"Best parameters: {grid_search.best_params_}")
-            logger.info(f"Best CV score: {grid_search.best_score_:.4f}")
-        except Exception as e:
-            logger.error(f"Hyperparameter tuning failed: {e}")
-            raise
-        
-        return {
-            'best_params': grid_search.best_params_,
-            'best_score': grid_search.best_score_,
-            'cv_results': grid_search.cv_results_
-        }
-    
-    def cross_validation(self, X: pd.DataFrame, y: pd.Series, cv: int = 5) -> Dict[str, Any]:
-        """Performs cross-validation with F1 scoring."""
-        logger.info(f"Performing {cv}-fold cross-validation...")
-        
-        if self.model is None:
-            raise ValueError("Model is not trained yet")
-        
-        cv_scores = cross_val_score(
-            self.model,
-            X,
-            y,
-            cv=cv,
-            scoring='f1',
-            n_jobs=-1
-        )
-        
-        results = {
-            'cv_scores': cv_scores,
-            'cv_mean': cv_scores.mean(),
-            'cv_std': cv_scores.std(),
-            'cv_min': cv_scores.min(),
-            'cv_max': cv_scores.max()
-        }
-        
-        logger.info(f"CV Results - Mean: {results['cv_mean']:.4f}, Std: {results['cv_std']:.4f}")
-        return results
-    
     def plot_results(self, X_test: pd.DataFrame, y_test: pd.Series, save_path: str = None):
         """Plots model results and performance metrics."""
         if self.model is None:
@@ -266,17 +186,3 @@ class FraudLogisticRegression:
         self.feature_importance = model_data['feature_importance']
         self.training_time = model_data['training_time']
         logger.info(f"Model loaded from: {file_path}")
-
-def main():
-    """Main function to demonstrate the Logistic Regression model."""
-    print("Logistic Regression Model for Fraud Detection")
-    print("Team Member 1: Traditional Machine Learning Approach")
-    print("\nLiterature Review Summary:")
-    print("- Logistic regression achieves 85-90% accuracy on credit card fraud datasets")
-    print("- Effective when combined with proper feature engineering")
-    print("- Handles class imbalance well with balanced class weights")
-    print("- Provides interpretable feature importance")
-    print("- Fast training and inference times suitable for real-time applications")
-
-if __name__ == "__main__":
-    main()

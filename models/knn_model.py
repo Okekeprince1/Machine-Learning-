@@ -17,7 +17,7 @@ class FraudKNNModel:
     """K-Nearest Neighbors model for fraud detection with enhanced features."""
     
     def __init__(self, config: Dict[str, Any] = None):
-        self.config = config or {
+        self.config = {
             'n_neighbors': 5,
             'weights': 'uniform',
             'algorithm': 'auto',
@@ -27,23 +27,6 @@ class FraudKNNModel:
         self.model = None
         self.training_time = None
         self.inference_times = []
-        self._validate_config()
-    
-    def _validate_config(self):
-        """Validates configuration parameters."""
-        valid_weights = ['uniform', 'distance']
-        valid_algorithms = ['auto', 'ball_tree', 'kd_tree', 'brute']
-        valid_metrics = ['euclidean', 'manhattan', 'minkowski']
-        if 'n_neighbors' not in self.config or self.config['n_neighbors'] < 1:
-            raise ValueError("n_neighbors must be a positive integer")
-        if 'weights' not in self.config or self.config['weights'] not in valid_weights:
-            raise ValueError(f"weights must be one of {valid_weights}")
-        if 'algorithm' not in self.config or self.config['algorithm'] not in valid_algorithms:
-            raise ValueError(f"algorithm must be one of {valid_algorithms}")
-        if 'metric' not in self.config or self.config['metric'] not in valid_metrics:
-            raise ValueError(f"metric must be one of {valid_metrics}")
-        if 'n_jobs' not in self.config:
-            self.config['n_jobs'] = -1
     
     def train(self, X_train: pd.DataFrame, y_train: pd.Series) -> Dict[str, Any]:
         """Trains the KNN model with error handling."""
@@ -117,69 +100,6 @@ class FraudKNNModel:
         logger.info(f"Evaluation completed. Accuracy: {accuracy:.4f}, AUC-ROC: {auc_roc:.4f}")
         return results
     
-    def hyperparameter_tuning(self, X_train: pd.DataFrame, y_train: pd.Series) -> Dict[str, Any]:
-        """Performs hyperparameter tuning using GridSearchCV."""
-        logger.info("Performing hyperparameter tuning...")
-        
-        param_grid = {
-            'n_neighbors': [3, 5, 7, 10, 15],
-            'weights': ['uniform', 'distance'],
-            'metric': ['euclidean', 'manhattan']
-        }
-        
-        base_model = KNeighborsClassifier(algorithm=self.config['algorithm'], n_jobs=self.config['n_jobs'])
-        grid_search = GridSearchCV(
-            base_model,
-            param_grid,
-            cv=5,
-            scoring='f1',
-            n_jobs=-1,
-            verbose=1
-        )
-        
-        try:
-            grid_search.fit(X_train, y_train)
-            self.model = grid_search.best_estimator_
-            self.config.update(grid_search.best_params_)
-            logger.info(f"Best parameters: {grid_search.best_params_}")
-            logger.info(f"Best CV score: {grid_search.best_score_:.4f}")
-        except Exception as e:
-            logger.error(f"Hyperparameter tuning failed: {e}")
-            raise
-        
-        return {
-            'best_params': grid_search.best_params_,
-            'best_score': grid_search.best_score_,
-            'cv_results': grid_search.cv_results_
-        }
-    
-    def cross_validation(self, X: pd.DataFrame, y: pd.Series, cv: int = 5) -> Dict[str, Any]:
-        """Performs cross-validation with F1 scoring."""
-        logger.info(f"Performing {cv}-fold cross-validation...")
-        
-        if self.model is None:
-            raise ValueError("Model is not trained yet")
-        
-        cv_scores = cross_val_score(
-            self.model,
-            X,
-            y,
-            cv=cv,
-            scoring='f1',
-            n_jobs=-1
-        )
-        
-        results = {
-            'cv_scores': cv_scores,
-            'cv_mean': cv_scores.mean(),
-            'cv_std': cv_scores.std(),
-            'cv_min': cv_scores.min(),
-            'cv_max': cv_scores.max()
-        }
-        
-        logger.info(f"CV Results - Mean: {results['cv_mean']:.4f}, Std: {results['cv_std']:.4f}")
-        return results
-    
     def plot_results(self, X_test: pd.DataFrame, y_test: pd.Series, save_path: str = None):
         """Plots model results, including prediction distribution."""
         if self.model is None:
@@ -216,7 +136,7 @@ class FraudKNNModel:
         axes[2].set_title('Prediction Distribution')
         axes[2].legend()
         
-        # Empty subplot (or add feature importance if dimensionality reduction is used)
+        # Empty subplot
         axes[3].axis('off')
         
         plt.tight_layout()
@@ -245,17 +165,3 @@ class FraudKNNModel:
         self.config = model_data['config']
         self.training_time = model_data['training_time']
         logger.info(f"Model loaded from: {file_path}")
-
-def main():
-    """Main function to demonstrate the KNN model."""
-    print("K-Nearest Neighbors Model for Fraud Detection")
-    print("Team Member 3: Traditional Machine Learning Approach")
-    print("\nLiterature Review Summary:")
-    print("- KNN is effective for fraud detection by identifying anomalies based on similarity")
-    print("- Performance depends on proper feature scaling and optimal k selection")
-    print("- Computationally intensive for large datasets, requiring careful optimization")
-    print("- Literature (e.g., PyFi, 2023) suggests KNN achieves high precision with tuned parameters")
-    print("Note: Use in pipeline after preprocessing with FraudDataPreprocessor.")
-
-if __name__ == "__main__":
-    main()

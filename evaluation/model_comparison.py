@@ -65,9 +65,11 @@ class ModelComparator:
         # Confusion matrix
         cm = confusion_matrix(y_test, y_pred)
         
-        # AUC-ROC (if probabilities available)
-        auc_roc = roc_auc_score(y_test, y_pred_proba) if y_pred_proba is not None else None
-        
+        # AUC-ROC
+        auc_roc = None 
+        if y_pred_proba is not None:
+            auc_roc = roc_auc_score(y_test, y_pred_proba)
+
         results = {
             'model_name': name,
             'model_type': model_info['type'],
@@ -212,75 +214,6 @@ class ModelComparator:
         
         plt.show()
     
-    def generate_report(self, output_path: str = "reports/model_comparison_report.html"):
-        """Generates a comprehensive HTML report."""
-        if self.comparison_data is None:
-            self.create_comparison_dataframe()
-        
-        if self.comparison_data.empty:
-            logger.warning("No comparison data available for report")
-            return
-        
-        # Create HTML report
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Fraud Detection Model Comparison Report</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
-                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-                th {{ background-color: #f2f2f2; }}
-                .metric {{ font-weight: bold; color: #333; }}
-                .best {{ background-color: #d4edda; }}
-            </style>
-        </head>
-        <body>
-            <h1>Fraud Detection Model Comparison Report</h1>
-            <p><strong>Generated:</strong> {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-            
-            <h2>Model Performance Summary</h2>
-            {self.comparison_data.to_html(index=False, classes='dataframe')}
-            
-            <h2>Best Performing Models</h2>
-            <ul>
-                <li><strong>Best Accuracy:</strong> {self.comparison_data.loc[self.comparison_data['Accuracy'].idxmax(), 'Model']} ({self.comparison_data['Accuracy'].max():.4f})</li>
-                <li><strong>Best F1-Score:</strong> {self.comparison_data.loc[self.comparison_data['F1-Score'].idxmax(), 'Model']} ({self.comparison_data['F1-Score'].max():.4f})</li>
-                <li><strong>Best AUC-ROC:</strong> {self.comparison_data.loc[self.comparison_data['AUC-ROC'].idxmax(), 'Model']} ({self.comparison_data['AUC-ROC'].max():.4f})</li>
-                <li><strong>Fastest Inference:</strong> {self.comparison_data.loc[self.comparison_data['Inference Time (ms)'].idxmin(), 'Model']} ({self.comparison_data['Inference Time (ms)'].min():.2f} ms)</li>
-            </ul>
-            
-            <h2>Detailed Results</h2>
-        """
-        
-        # Add detailed results for each model
-        for name, results in self.results.items():
-            if 'error' not in results:
-                html_content += f"""
-                <h3>{name} ({results['model_type']})</h3>
-                <table>
-                    <tr><td>Accuracy</td><td>{results['accuracy']:.4f}</td></tr>
-                    <tr><td>Precision</td><td>{results['precision']:.4f}</td></tr>
-                    <tr><td>Recall</td><td>{results['recall']:.4f}</td></tr>
-                    <tr><td>F1-Score</td><td>{results['f1_score']:.4f}</td></tr>
-                    <tr><td>AUC-ROC</td><td>{results['auc_roc']:.4f}</td></tr>
-                    <tr><td>Inference Time</td><td>{results['inference_time_ms']:.2f} ms</td></tr>
-                </table>
-                """
-        
-        html_content += """
-        </body>
-        </html>
-        """
-        
-        # Save report
-        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, 'w') as f:
-            f.write(html_content)
-        
-        logger.info(f"Comparison report saved to: {output_path}")
-    
     def save_results(self, file_path: str):
         """Saves comparison results to file."""
         results_data = {
@@ -290,31 +223,6 @@ class ModelComparator:
         }
         
         with open(file_path, 'w') as f:
-            json.dump(results_data, f, indent=2, default=str)
+            json.dump(results_data, f)
         
         logger.info(f"Results saved to: {file_path}")
-    
-    def load_results(self, file_path: str):
-        """Loads comparison results from file."""
-        with open(file_path, 'r') as f:
-            results_data = json.load(f)
-        
-        if results_data['comparison_data']:
-            self.comparison_data = pd.DataFrame(results_data['comparison_data'])
-        self.results = results_data['results']
-        
-        logger.info(f"Results loaded from: {file_path}")
-
-def main():
-    """Main function to demonstrate model comparison."""
-    print("Model Comparison and Evaluation Module")
-    print("Compares all team members' models using standard metrics")
-    print("\nFeatures:")
-    print("- Comprehensive model evaluation")
-    print("- Performance comparison across multiple metrics")
-    print("- Visualization of results")
-    print("- HTML report generation")
-    print("- Latency and throughput analysis")
-
-if __name__ == "__main__":
-    main() 
